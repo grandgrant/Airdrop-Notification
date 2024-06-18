@@ -13,8 +13,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  List<AirdropModel> listAirdrop = [];
-
   @override
   void initState() {
     BlocProvider.of<AirdropBloc>(context).add(AirdropListGet());
@@ -49,6 +47,7 @@ class _MainScreenState extends State<MainScreen> {
               }
 
               if (state is AirdropLoaded) {
+                print("Loaded");
                 if (state.listAirdrop.isEmpty) {
                   return const Center(
                     child: Text(
@@ -57,14 +56,18 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   );
                 } else {
+                  List<AirdropModel> listAirdrop = state.listAirdrop;
+
                   return ListView.separated(
                     itemBuilder: (listContext, index) {
+                      AirdropModel airdrop = listAirdrop[index];
                       return GestureDetector(
-                        onTap: () {
-                          //TODO activate scheduler
+                        onDoubleTap: () {
+                          BlocProvider.of<AirdropBloc>(context)
+                              .add(AirdropStartSchedule(airdrop.id));
                         },
                         child: Card(
-                          color: state.listAirdrop[index].isScheduled == 1
+                          color: airdrop.isScheduled == 1
                               ? Colors.green
                               : Colors.white,
                           child: Container(
@@ -73,7 +76,7 @@ class _MainScreenState extends State<MainScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  state.listAirdrop[index].airdropName,
+                                  airdrop.airdropName,
                                   style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold),
@@ -96,8 +99,7 @@ class _MainScreenState extends State<MainScreen> {
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w500),
                                           ),
-                                          Text(
-                                              "${state.listAirdrop[index].repeatTime} Jam"),
+                                          Text("${airdrop.repeatTime} Jam"),
                                         ],
                                       ),
                                     ),
@@ -112,8 +114,9 @@ class _MainScreenState extends State<MainScreen> {
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w500),
                                           ),
-                                          Text(state
-                                              .listAirdrop[index].lastTrigger),
+                                          Text(airdrop.lastTrigger.isEmpty
+                                              ? "-"
+                                              : airdrop.lastTrigger),
                                         ],
                                       ),
                                     )

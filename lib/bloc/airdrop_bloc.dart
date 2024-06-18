@@ -1,13 +1,19 @@
+import 'dart:math';
+
 import 'package:airdrop_notification/data/model/airdrop_model.dart';
 import 'package:airdrop_notification/data/repository/airdrop_repo.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:intl/locale.dart';
 import 'package:meta/meta.dart';
 import 'package:schedulers/schedulers.dart';
 import 'package:uuid/data.dart';
 import 'package:uuid/rng.dart';
 import 'package:uuid/uuid.dart';
+import 'package:intl/intl.dart';
 
 part 'airdrop_event.dart';
 part 'airdrop_state.dart';
@@ -48,19 +54,78 @@ class AirdropBloc extends HydratedBloc<AirdropEvent, AirdropState> {
     });
     on<AirdropDelete>((event, emit) {});
 
-    on<AirdropStartSchedule>(
-      (event, emit) {
-        String id = event.id;
+    on<AirdropStartSchedule>((event, emit) async {
+      FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+          FlutterLocalNotificationsPlugin();
 
-        AirdropModel airdrop =
-            listAirdrop.where((element) => element.id == id).first;
+      bool? permissionNotification = await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
 
-        final schedulerAirdrop =
-            RateScheduler(1, Duration(hours: airdrop.repeatTime));
+      if (permissionNotification != null) {
+        if (permissionNotification) {
+          String id = event.id;
 
-        schedulerAirdrop.run(() {});
-      },
-    );
+          AirdropModel airdrop =
+              listAirdrop.where((element) => element.id == id).first;
+
+          List<AirdropModel> modifiedListAirdrop = listAirdrop.map((e) {
+            if (e.id == airdrop.id) {
+              e.isScheduled = 1;
+            }
+            return e;
+          }).toList();
+
+          final schedulerAirdrop = TimeScheduler();
+          DateTime dateTime =
+              DateTime.now().add(Duration(minutes: airdrop.repeatTime));
+
+          schedulerAirdrop.run(() {
+            AndroidNotificationDetails androidNotificationDetails =
+                AndroidNotificationDetails(
+                    'your channel id', 'your channel name',
+                    channelDescription: 'your channel description',
+                    importance: Importance.max,
+                    priority: Priority.high,
+                    ticker: airdrop.airdropName);
+
+            NotificationDetails notificationDetails =
+                NotificationDetails(android: androidNotificationDetails);
+
+            flutterLocalNotificationsPlugin.show(
+                Random.secure().nextInt(99999),
+                airdrop.airdropName,
+                "Dont forget to claim token",
+                notificationDetails,
+                payload: id);
+          }, dateTime);
+
+          emit(AirdropLoading());
+
+          emit(AirdropLoaded(modifiedListAirdrop));
+        } else {
+          const AirdropError("Please accept permission");
+        }
+      }
+    });
+
+    on<AirdropFinishSchedule>((event, emit) {
+      String id = event.id;
+
+      List<AirdropModel> newListAirdrop = listAirdrop.map((e) {
+        if (e.id == id) {
+          e.isScheduled = 0;
+          e.lastTrigger = DateFormat('HH:mm:ss').format(DateTime.now());
+        }
+
+        return e;
+      }).toList();
+
+      emit(AirdropLoading());
+
+      emit(AirdropLoaded(newListAirdrop));
+    });
   }
 
   @override

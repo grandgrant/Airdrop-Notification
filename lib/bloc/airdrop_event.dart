@@ -17,6 +17,12 @@ class AirdropStartSchedule extends AirdropEvent {
   AirdropStartSchedule(this.id);
 }
 
+class AirdropFinishSchedule extends AirdropEvent {
+  final String id;
+
+  AirdropFinishSchedule(this.id);
+}
+
 class AirdropDelete extends AirdropEvent {
   final String id;
   AirdropDelete(this.id);
